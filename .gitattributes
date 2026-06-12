@@ -1,0 +1,4 @@
+# Always use LF line endings for shell scripts
+*.sh text eol=lf
+*.md text eol=lf
+.gitignore text eol=lf
