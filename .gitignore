@@ -1,0 +1,7 @@
+# Never commit these
+__pycache__/
+*.pyc
+*.pyo
+.env
+venvs/
+*.log
