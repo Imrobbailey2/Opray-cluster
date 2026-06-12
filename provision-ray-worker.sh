@@ -8,7 +8,7 @@
 set -e
 
 # ── Configuration ────────────────────────────────────────────
-HEAD_IP="${1:-10.242.22.65}"
+HEAD_IP="${1:?Error: HEAD_NODE_IP required. Usage: bash provision-ray-worker.sh <HEAD_NODE_IP>}"
 HEAD_PORT="6379"
 PYTHON_VERSION="3.12.13"
 RAY_VERSION="2.55.1"

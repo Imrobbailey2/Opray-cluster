@@ -1,12 +1,12 @@
 #!/bin/bash
 export RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
 # Ray Head Node Startup Script
-# IF-CALS-J3XGWM3 - W11 Workstation / RTX A4000
+# Head Node - Primary GPU Worker
 
 # Activate Ray venv
 source ~/venvs/ray/bin/activate
 
-# Get current LAN IP (mirrored mode - should be 10.242.22.65)
+# Get current LAN IP (mirrored networking mode)
 LAN_IP=$(hostname -I | awk '{print $1}')
 echo "Starting Ray head node on: $LAN_IP"
 
