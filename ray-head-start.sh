@@ -25,3 +25,18 @@ ray start --head \
 echo ""
 echo "Ray Dashboard: http://$LAN_IP:8265"
 echo "Ray Address for workers: $LAN_IP:6379"
+
+# Launch Prometheus with Ray-generated config
+echo "Starting Prometheus..."
+ray metrics launch-prometheus &
+sleep 3
+
+# Launch Grafana with Ray-generated config
+echo "Starting Grafana..."
+sudo grafana-server \
+    --config /tmp/ray/session_latest/metrics/grafana/grafana.ini \
+    --homepath /usr/share/grafana \
+    web >> /tmp/grafana.log 2>&1 &
+
+echo "Prometheus: http://$LAN_IP:9090"
+echo "Grafana:    http://$LAN_IP:3000"
