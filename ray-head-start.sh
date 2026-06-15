@@ -1,5 +1,6 @@
 #!/bin/bash
 export RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+export RAY_memory_monitor_refresh_ms=0
 # Ray Head Node Startup Script
 # Head Node - Primary GPU Worker
 

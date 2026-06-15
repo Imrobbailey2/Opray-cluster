@@ -1,5 +1,6 @@
 #!/bin/bash
 export RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+export RAY_memory_monitor_refresh_ms=0
 # Ray Worker Node Startup Script
 # Auto-provisioned Fri Jun 12 11:42:12 EDT 2026
 # GPU: NVIDIA RTX A4000
