@@ -23,3 +23,7 @@ ray start \
   --num-gpus=1 \
   --disable-usage-stats \
   --verbose
+export RAY_health_check_initial_delay_ms=5000
+export RAY_health_check_period_ms=5000
+export RAY_health_check_timeout_ms=30000
+export RAY_health_check_failure_threshold=6
