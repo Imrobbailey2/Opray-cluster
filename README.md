@@ -28,15 +28,26 @@ Distributed GPU compute cluster for LLM inference, rendering, ML training, and c
 
 > ⚠️ Every new worker machine requires **TWO** provisioning steps: a Windows-side step and a Linux-side step. Skipping the Windows step will cause the worker to repeatedly disconnect from the cluster due to firewall-blocked health checks.
 
-### Step 1 — Windows Provisioning (PowerShell, run as Administrator)
+### Before You Begin — Download the Windows Script
 
-Run the included PowerShell script on the new worker machine **before anything else**:
+The Windows provisioning script must be run **before** WSL2 is configured, which means it must be downloaded directly. Run this in **PowerShell (Admin)** on the new worker machine:
 
 ```powershell
-provision-ray-worker-windows.ps1
+Invoke-WebRequest `
+    -Uri "https://raw.githubusercontent.com/Imrobbailey2/Opray-cluster/main/provision-ray-worker-windows.ps1" `
+    -OutFile "$env:USERPROFILE\provision-ray-worker-windows.ps1"
+
+.\provision-ray-worker-windows.ps1
 ```
 
-This script:
+This works on any Windows 11 machine with no prerequisites — no WSL2, no git, no existing setup required.
+
+---
+
+### Step 1 — Windows Provisioning (PowerShell, run as Administrator)
+
+The script above handles this step automatically. It:
+
 - Configures WSL2 mirrored networking
 - Opens the required Ray ports in Windows Defender Firewall (Domain profile)
 
@@ -111,20 +122,29 @@ The dashboard shows all connected nodes, GPU availability, VRAM usage, and job q
 
 ## Known Issues and Fixes
 
-### WSL2 cgroup memory monitor
-WSL2 does not expose cgroup memory information correctly. Ray's memory monitor will log warnings about negative memory values. This is resolved by setting `memory_monitor_refresh_ms` to `0` in the head node `--system-config`, which is already included in `ray-head-start.sh`. The setting propagates automatically to all workers.
-
 ### Windows Firewall blocking health checks
 Ray's GCS server performs periodic health checks from the head node to each worker on port `20001`. If Windows Defender Firewall blocks this port on the worker, the worker raylet self-terminates after missing the configured number of health checks. This is resolved by `provision-ray-worker-windows.ps1`.
 
 ### WSL2 NAT vs mirrored networking
 If `hostname -I` returns a `172.x.x.x` address, WSL2 is in NAT mode. Workers in NAT mode register with an unreachable IP and immediately fail to receive health checks. Enable mirrored networking via the Windows provisioning script.
 
+### WSL2 cgroup memory monitor
+WSL2 does not expose cgroup memory information correctly. Ray's memory monitor logs warnings about negative memory values and can block the raylet's main thread long enough to fail health checks. This is resolved by setting `memory_monitor_refresh_ms` to `0` in the head node `--system-config`, which is already included in `ray-head-start.sh`. The setting propagates automatically to all workers.
+
+### EOL Ubuntu releases
+Ubuntu versions past end-of-life (e.g., Resolute) have their package repositories removed from `archive.ubuntu.com`. Running `apt-get update` will fail with "no longer has a Release file". The provisioning script detects this automatically and switches to `old-releases.ubuntu.com`.
+
+### WSL2 DNS resolution failure
+Some WSL2 configurations fail to resolve hostnames (`Temporary failure resolving 'archive.ubuntu.com'`). The provisioning script detects this before running any apt operations and automatically fixes `/etc/resolv.conf` by setting nameservers to `8.8.8.8` and `8.8.4.4`.
+
 ### Python version mismatch
 All nodes must run the **exact same Python patch version**. This cluster uses Python 3.12.13. The provisioning script installs this version via pyenv regardless of the system Python version.
 
 ### Worker nodes joining and leaving
 Workers can join and leave the cluster at any time without affecting the head node or other workers. Simply run `ray-worker-start.sh` to rejoin after a restart.
+
+### nvidia-smi segfault
+If `nvidia-smi` crashes with a segmentation fault, the Windows NVIDIA driver is too old to support the current WSL2 kernel. Update to driver version 610.x or newer via GeForce Experience or the NVIDIA driver download page.
 
 ---
 
