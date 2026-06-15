@@ -1,19 +1,13 @@
 #!/bin/bash
 export RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
-export RAY_memory_monitor_refresh_ms=0
 # Ray Head Node Startup Script
-# Head Node - Primary GPU Worker
 
-# Activate Ray venv
 source ~/venvs/ray/bin/activate
 
-# Get current LAN IP (mirrored networking mode)
-LAN_IP=$(hostname -I | awk '{print $1}')
+LAN_IP=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7; exit}')
 echo "Starting Ray head node on: $LAN_IP"
 
 ray start --head \
-  --disable-usage-stats \
-  --disable-usage-stats \
   --node-ip-address=$LAN_IP \
   --port=6379 \
   --dashboard-host=0.0.0.0 \
@@ -24,6 +18,8 @@ ray start --head \
   --min-worker-port=20002 \
   --max-worker-port=20100 \
   --num-gpus=1 \
+  --disable-usage-stats \
+  --system-config='{"memory_monitor_refresh_ms":0,"health_check_initial_delay_ms":5000,"health_check_period_ms":5000,"health_check_timeout_ms":30000,"health_check_failure_threshold":6}' \
   --verbose
 
 echo ""
