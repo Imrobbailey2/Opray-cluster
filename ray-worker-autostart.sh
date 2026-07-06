@@ -3,13 +3,14 @@
 # Opray Cluster - Worker Auto-Start Script
 # Runs at system boot via Windows Task Scheduler (SYSTEM account)
 # No interactive input required.
-# Update HEAD_IP below if the head node IP changes.
 # ==============================================================
 
 export RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+export RAY_USAGE_STATS_ENABLED=0
+export RAY_DISABLE_MEMORY_MONITOR=1
 
 LOG_FILE="/tmp/ray-autostart.log"
-HEAD_IP="10.242.22.65"   # <-- Update if head node IP changes
+HEAD_IP="100.117.146.7"   # firstfolk-v2 Tailscale IP -- permanent
 
 echo "$(date) -- Opray worker autostart beginning" >> "$LOG_FILE"
 
@@ -19,11 +20,11 @@ if [[ -f /tmp/ray-paused ]]; then
     rm -f /tmp/ray-paused
 fi
 
-# Wait for network and head node
-echo "$(date) -- Waiting for network and head node..." >> "$LOG_FILE"
+# Wait for Tailscale and head node (nc instead of ping -- Tailscale may block ICMP)
+echo "$(date) -- Waiting for network and head node at $HEAD_IP:6379..." >> "$LOG_FILE"
 NETWORK_READY=0
 for i in $(seq 1 30); do
-    if ping -c 1 -W 2 "$HEAD_IP" &>/dev/null; then
+    if nc -z -w5 "$HEAD_IP" 6379 &>/dev/null; then
         echo "$(date) -- Network ready on attempt $i, head node reachable" >> "$LOG_FILE"
         NETWORK_READY=1
         break
@@ -44,8 +45,8 @@ source ~/venvs/ray/bin/activate
 ray stop --force 2>/dev/null || true
 sleep 2
 
-# Detect worker IP
-WORKER_IP=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7; exit}')
+# Detect worker Tailscale IP (preferred) with fallback to route-based detection
+WORKER_IP=$(tailscale ip -4 2>/dev/null || ip route get 8.8.8.8 2>/dev/null | awk '{print $7; exit}')
 echo "$(date) -- Worker IP: $WORKER_IP" >> "$LOG_FILE"
 echo "$(date) -- Joining Ray cluster at $HEAD_IP:6379" >> "$LOG_FILE"
 

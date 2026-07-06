@@ -1,10 +1,19 @@
 #!/bin/bash
+# ==============================================================
+# Opray Cluster - Head Node Startup Script
+# Run on firstfolk-v2 to start the Ray head node.
+# ==============================================================
+
 export RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
-# Ray Head Node Startup Script
+export RAY_USAGE_STATS_ENABLED=0
+export RAY_DISABLE_MEMORY_MONITOR=1
 
-source ~/venvs/ray/bin/activate
+# Activate venv (firstfolk-v2 path)
+source ~/ray-head/.venv/bin/activate
 
-LAN_IP=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7; exit}')
+# Use Tailscale IP if available (permanent, survives DHCP changes)
+# Falls back to route-based detection if Tailscale is not running
+LAN_IP=$(tailscale ip -4 2>/dev/null || ip route get 8.8.8.8 2>/dev/null | awk '{print $7; exit}')
 echo "Starting Ray head node on: $LAN_IP"
 
 ray start --head \
@@ -17,7 +26,6 @@ ray start --head \
   --object-manager-port=10002 \
   --min-worker-port=20002 \
   --max-worker-port=20100 \
-  --num-gpus=1 \
   --disable-usage-stats \
   --system-config='{"memory_monitor_refresh_ms":0,"health_check_initial_delay_ms":5000,"health_check_period_ms":5000,"health_check_timeout_ms":30000,"health_check_failure_threshold":6}' \
   --verbose

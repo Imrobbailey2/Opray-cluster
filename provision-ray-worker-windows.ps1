@@ -6,40 +6,65 @@
 # Run this in PowerShell (Admin) on any new Windows 11 worker.
 # ==============================================================
 
+# ── Configurable Variables ────────────────────────────────────
+$WSL2MemoryGB  = "16GB"   # Tune to machine RAM
+$WSL2Processors = 12      # Reserve cores for Ray
+
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host "  Opray Cluster - Windows Worker Provisioning  " -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# -- 1/4 Insomnia Power Profile --------------------------------
-Write-Host "[ 1/4 ] Configuring Insomnia power profile..." -ForegroundColor Yellow
+# -- 1/5 Insomnia Power Profile --------------------------------
+Write-Host "[ 1/5 ] Configuring Insomnia power profile..." -ForegroundColor Yellow
 
 powercfg /change standby-timeout-ac 0
 powercfg /change hibernate-timeout-ac 0
 powercfg /change disk-timeout-ac 0
 powercfg /change monitor-timeout-ac 60
+powercfg /h off
 
 Write-Host "  OK  Sleep disabled (AC power)" -ForegroundColor Green
 Write-Host "  OK  Hibernate disabled (AC power)" -ForegroundColor Green
 Write-Host "  OK  Disk timeout disabled (AC power)" -ForegroundColor Green
 Write-Host "  OK  Monitor timeout set to 60 minutes" -ForegroundColor Green
+Write-Host "  OK  Hibernate file removed" -ForegroundColor Green
 
-# -- 2/4 WSL2 Mirrored Networking -----------------------------
+# -- 2/5 Defer Windows Update Auto-Restart ---------------------
 Write-Host ""
-Write-Host "[ 2/4 ] Configuring WSL2 mirrored networking..." -ForegroundColor Yellow
+Write-Host "[ 2/5 ] Deferring Windows Update auto-restarts..." -ForegroundColor Yellow
+
+$wuPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
+if (-not (Test-Path $wuPath)) {
+    New-Item -Path $wuPath -Force | Out-Null
+}
+Set-ItemProperty -Path $wuPath -Name "NoAutoRebootWithLoggedOnUsers" -Value 1 -Type DWord -Force
+Set-ItemProperty -Path $wuPath -Name "AUOptions"                     -Value 4 -Type DWord -Force
+
+Write-Host "  OK  NoAutoRebootWithLoggedOnUsers = 1" -ForegroundColor Green
+Write-Host "  OK  AUOptions = 4 (notify only, no auto-install)" -ForegroundColor Green
+
+# -- 3/5 WSL2 Mirrored Networking ------------------------------
+Write-Host ""
+Write-Host "[ 3/5 ] Configuring WSL2 networking and resources..." -ForegroundColor Yellow
 
 @"
 [wsl2]
+memory=$WSL2MemoryGB
+processors=$WSL2Processors
 networkingMode=mirrored
 autoProxy=true
+kernelCommandLine=systemd.unified_cgroup_hierarchy=1
 "@ | Set-Content "$env:USERPROFILE\.wslconfig"
 
 Write-Host "  OK  .wslconfig written to $env:USERPROFILE\.wslconfig" -ForegroundColor Green
+Write-Host "  OK  memory=$WSL2MemoryGB, processors=$WSL2Processors" -ForegroundColor Green
+Write-Host "  OK  networkingMode=mirrored (Tailscale-compatible)" -ForegroundColor Green
 
-# -- 3/4 Windows Firewall Rules --------------------------------
+# -- 4/5 Windows Firewall Rules --------------------------------
 Write-Host ""
-Write-Host "[ 3/4 ] Creating Ray firewall rules..." -ForegroundColor Yellow
+Write-Host "[ 4/5 ] Creating Ray firewall rules..." -ForegroundColor Yellow
 
 $ports = @(
     @{Name="Opray-GCS";         Port=6379},
@@ -60,7 +85,7 @@ foreach ($p in $ports) {
             -Protocol TCP `
             -LocalPort $p.Port `
             -Action Allow `
-            -Profile Domain `
+            -Profile Any `
             -Enabled True | Out-Null
         Write-Host "  OK  $($p.Name) port $($p.Port)" -ForegroundColor Green
     }
@@ -76,14 +101,14 @@ if ($existingRange) {
         -Protocol TCP `
         -LocalPort 20002-20100 `
         -Action Allow `
-        -Profile Domain `
+        -Profile Any `
         -Enabled True | Out-Null
     Write-Host "  OK  Opray-WorkerRange ports 20002-20100" -ForegroundColor Green
 }
 
-# -- 4/4 Scheduled Tasks and Helper Scripts --------------------
+# -- 5/5 Scheduled Tasks and Helper Scripts --------------------
 Write-Host ""
-Write-Host "[ 4/4 ] Creating scheduled tasks and helper scripts..." -ForegroundColor Yellow
+Write-Host "[ 5/5 ] Creating scheduled tasks and helper scripts..." -ForegroundColor Yellow
 
 $dataDir = "C:\ProgramData\Opray-cluster"
 if (-not (Test-Path $dataDir)) {
@@ -202,16 +227,18 @@ Write-Host "  Provisioning Complete                        " -ForegroundColor Cy
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Power:     Insomnia mode active (no sleep/hibernate)" -ForegroundColor White
-Write-Host "  Network:   WSL2 mirrored networking configured" -ForegroundColor White
-Write-Host "  Firewall:  Ray ports open (Domain profile)" -ForegroundColor White
+Write-Host "  Updates:   Windows Update auto-restart deferred" -ForegroundColor White
+Write-Host "  Network:   WSL2 mirrored networking configured ($WSL2MemoryGB RAM, $WSL2Processors cores)" -ForegroundColor White
+Write-Host "  Firewall:  Ray ports open (All profiles)" -ForegroundColor White
 Write-Host "  Tasks:     RayWorkerBoot, RayWorkerNotify, RayWorkerResume" -ForegroundColor White
 Write-Host ""
 Write-Host "  Next steps:" -ForegroundColor Yellow
-Write-Host "    1. Restart WSL2:" -ForegroundColor White
+Write-Host "    1. Install Tailscale (Windows app) and authenticate to Imrobbailey2@ account" -ForegroundColor White
+Write-Host "    2. Restart WSL2:" -ForegroundColor White
 Write-Host "       wsl --shutdown" -ForegroundColor Gray
-Write-Host "    2. Open Ubuntu and run:" -ForegroundColor White
+Write-Host "    3. Open Ubuntu and run:" -ForegroundColor White
 Write-Host "       git clone https://github.com/Imrobbailey2/Opray-cluster.git" -ForegroundColor Gray
-Write-Host "       bash Opray-cluster/provision-ray-worker.sh <HEAD_NODE_IP>" -ForegroundColor Gray
+Write-Host "       bash Opray-cluster/provision-ray-worker.sh" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  This machine will auto-join the cluster on next reboot." -ForegroundColor Green
 Write-Host ""
